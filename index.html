@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Synthwave Grid // Sound & Light</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Retro Neon Grid Background -->
+    <div class="space-grid"></div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header>
+            <h1>SYNTHWAVE <span class="highlight">GRID</span></h1>
+            <p class="subtitle">INTERACTIVE SOUNDBOARD & VISUALIZER</p>
+        </header>
+
+        <!-- Visualizer Section -->
+        <div class="visualizer-container">
+            <canvas id="visualizerCanvas"></canvas>
+            <div class="center-status" id="statusText">TAP A PAD TO GENERATE FREQUENCIES</div>
+        </div>
+
+        <!-- Audio Grid Controls (Tempo/Volume) -->
+        <div class="control-bar">
+            <div class="control-item">
+                <label for="masterVolume">VOLUME</label>
+                <input type="range" id="masterVolume" min="0" max="1" step="0.1" value="0.7">
+            </div>
+            <button class="action-btn" id="panicBtn">KILL AUDIO</button>
+        </div>
+
+        <!-- Soundboard Grid -->
+        <div class="sound-grid">
+            <!-- Beat Section -->
+            <button class="pad beat-pad" data-sound="kick">
+                <span class="pad-key">1</span>
+                <span class="pad-name">KICK</span>
+            </button>
+            <button class="pad beat-pad" data-sound="snare">
+                <span class="pad-key">2</span>
+                <span class="pad-name">SNARE</span>
+            </button>
+            <button class="pad beat-pad" data-sound="hihat">
+                <span class="pad-key">3</span>
+                <span class="pad-name">HI-HAT</span>
+            </button>
+            <button class="pad beat-pad" data-sound="clap">
+                <span class="pad-key">4</span>
+                <span class="pad-name">CLAP</span>
+            </button>
+
+            <!-- Bass Section -->
+            <button class="pad bass-pad" data-sound="sub">
+                <span class="pad-key">Q</span>
+                <span class="pad-name">SUB BASS</span>
+            </button>
+            <button class="pad bass-pad" data-sound="saw">
+                <span class="pad-key">W</span>
+                <span class="pad-name">SAW BASS</span>
+            </button>
+            <button class="pad bass-pad" data-sound="growl">
+                <span class="pad-key">E</span>
+                <span class="pad-name">GROWL</span>
+            </button>
+            <button class="pad bass-pad" data-sound="retro">
+                <span class="pad-key">R</span>
+                <span class="pad-name">80S BASS</span>
+            </button>
+
+            <!-- Synth Melodies -->
+            <button class="pad synth-pad" data-sound="lead1">
+                <span class="pad-key">A</span>
+                <span class="pad-name">CYBER LEAD</span>
+            </button>
+            <button class="pad synth-pad" data-sound="lead2">
+                <span class="pad-key">S</span>
+                <span class="pad-name">NEON ARP</span>
+            </button>
+            <button class="pad synth-pad" data-sound="pad">
+                <span class="pad-key">D</span>
+                <span class="pad-name">DREAM SPACE</span>
+            </button>
+            <button class="pad synth-pad" data-sound="chime">
+                <span class="pad-key">F</span>
+                <span class="pad-name">GLITCH BELL</span>
+            </button>
+        </div>
+
+        <!-- Instructions footer -->
+        <footer>
+            <p>Use keys [1-4], [Q-R], [A-F] on your keyboard or tap the pads.</p>
+        </footer>
+    </div>
+
+</body>
+</html>

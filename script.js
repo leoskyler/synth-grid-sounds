@@ -2,6 +2,9 @@ let audioCtx = null;
 let analyser = null;
 let visualActive = false;
 
+// Grab screen text display
+const screenText = document.getElementById("screenText");
+
 function initAudio() {
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -18,19 +21,26 @@ function initAudio() {
 // Master volume node
 let masterGain = null;
 function getMasterGain() {
+    const volumeSlider = document.getElementById("masterVolume");
+    const vol = volumeSlider ? parseFloat(volumeSlider.value) : 0.6;
+    
     if (!masterGain && audioCtx) {
         masterGain = audioCtx.createGain();
-        masterGain.gain.setValueAtTime(0.8, audioCtx.currentTime);
         masterGain.connect(analyser);
+    }
+    if (masterGain) {
+        masterGain.gain.setValueAtTime(vol, audioCtx.currentTime);
     }
     return masterGain;
 }
 
-// --- Dynamic Visualizer Engine ---
+// Dynamic Visualizer Engine
 function startVisualizer() {
-    const patchDisplay = document.querySelector('.visualizer-inner') || document.querySelector('.zen-core');
-    if (!patchDisplay) return;
+    const visualizerCanvas = document.getElementById("audioVisualizer");
+    if (!visualizerCanvas) return;
+    const canvasCtx = visualizerCanvas.getContext("2d");
     visualActive = true;
+    
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
     
@@ -38,14 +48,52 @@ function startVisualizer() {
         if (!visualActive) return;
         requestAnimationFrame(draw);
         analyser.getByteFrequencyData(dataArray);
+        
+        // Match high-DPI scaling
+        const rect = visualizerCanvas.getBoundingClientRect();
+        visualizerCanvas.width = rect.width;
+        visualizerCanvas.height = rect.height;
+        
+        canvasCtx.clearRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
+        
+        // Simple CRT neon wave line
+        canvasCtx.lineWidth = 3;
+        canvasCtx.strokeStyle = "#00f0ff";
+        canvasCtx.shadowBlur = 8;
+        canvasCtx.shadowColor = "#00f0ff";
+        canvasCtx.beginPath();
+        
+        const sliceWidth = visualizerCanvas.width / bufferLength;
+        let x = 0;
+        
+        for (let i = 0; i < bufferLength; i++) {
+            const v = dataArray[i] / 128.0;
+            const y = (v * visualizerCanvas.height) / 2;
+            
+            if (i === 0) {
+                canvasCtx.moveTo(x, y);
+            } else {
+                canvasCtx.lineTo(x, y);
+            }
+            x += sliceWidth;
+        }
+        canvasCtx.lineTo(visualizerCanvas.width, visualizerCanvas.height / 2);
+        canvasCtx.stroke();
     }
     draw();
 }
 
+// Update Screen Label
+function updateScreenText(patchName) {
+    if (screenText) {
+        screenText.innerText = `PATCH OUT: [${patchName.toUpperCase()}]`;
+    }
+}
+
 // --- The 12-Pad Synthesizer Engines ---
 const synths = {
-    // PAD 01: Audibility-Enhanced Kick (Sine + Triangle blend for rich upper harmonics)
-    1: () => {
+    // PAD 01: Audibility-Enhanced Kick
+    "kick": () => {
         const now = audioCtx.currentTime;
         const oscSine = audioCtx.createOscillator();
         const oscTri = audioCtx.createOscillator();
@@ -54,20 +102,18 @@ const synths = {
         const filter = audioCtx.createBiquadFilter();
 
         oscSine.type = 'sine';
-        oscTri.type = 'triangle'; // Triangle provides crucial mid-range harmonics for phone speakers!
+        oscTri.type = 'triangle'; // Generates upper-mids so phone speakers can hear it!
 
-        // Dynamic rapid pitch drop
         oscSine.frequency.setValueAtTime(150, now);
         oscSine.frequency.exponentialRampToValueAtTime(52, now + 0.12);
 
-        oscTri.frequency.setValueAtTime(300, now); // Double frequency for audible definition on phones
+        oscTri.frequency.setValueAtTime(300, now);
         oscTri.frequency.exponentialRampToValueAtTime(104, now + 0.12);
 
-        // Volume envelopes
         gainSine.gain.setValueAtTime(0.8, now);
         gainSine.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
 
-        gainTri.gain.setValueAtTime(0.2, now); // Quiet mix but highly audible
+        gainTri.gain.setValueAtTime(0.2, now);
         gainTri.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
 
         filter.type = 'lowpass';
@@ -84,10 +130,11 @@ const synths = {
         oscTri.start(now);
         oscSine.stop(now + 0.3);
         oscTri.stop(now + 0.3);
+        updateScreenText("kick");
     },
 
     // PAD 02: Snare Drum
-    2: () => {
+    "snare": () => {
         const now = audioCtx.currentTime;
         const bufferSize = audioCtx.sampleRate * 0.2;
         const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
@@ -125,10 +172,11 @@ const synths = {
         snap.start(now);
         noise.stop(now + 0.2);
         snap.stop(now + 0.2);
+        updateScreenText("snare");
     },
 
     // PAD 03: Hi-Hat
-    3: () => {
+    "hihat": () => {
         const now = audioCtx.currentTime;
         const bufferSize = audioCtx.sampleRate * 0.05;
         const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
@@ -153,10 +201,11 @@ const synths = {
 
         noise.start(now);
         noise.stop(now + 0.06);
+        updateScreenText("hi-hat");
     },
 
-    // PAD 04: Futuristic Clap
-    4: () => {
+    // PAD 04: Clap
+    "clap": () => {
         const now = audioCtx.currentTime;
         const playClapTrigger = (delay) => {
             const bufferSize = audioCtx.sampleRate * 0.08;
@@ -187,23 +236,24 @@ const synths = {
         playClapTrigger(0);
         playClapTrigger(0.015);
         playClapTrigger(0.03);
+        updateScreenText("clap");
     },
 
-    // PAD 05: Audibility-Enhanced Sub Deep (Added a low second-harmonic oscillator)
-    5: () => {
+    // PAD 05: Audibility-Enhanced Sub Deep
+    "sub": () => {
         const now = audioCtx.currentTime;
         const subOsc = audioCtx.createOscillator();
         const harmonicOsc = audioCtx.createOscillator();
         const subGain = audioCtx.createGain();
         const harmGain = audioCtx.createGain();
 
-        // 55Hz (Sub A1 - Feel this on headphones)
+        // 55Hz Sub (pure pressure)
         subOsc.type = 'sine';
         subOsc.frequency.setValueAtTime(55, now);
         subGain.gain.setValueAtTime(0.8, now);
         subGain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
 
-        // 110Hz (Harmonic A2 - Triangle wave to bypass phone speaker limits!)
+        // 110Hz Harmonic (adds audible tone structure on phone speakers)
         harmonicOsc.type = 'triangle';
         harmonicOsc.frequency.setValueAtTime(110, now);
         harmGain.gain.setValueAtTime(0.18, now);
@@ -219,10 +269,11 @@ const synths = {
         harmonicOsc.start(now);
         subOsc.stop(now + 0.6);
         harmonicOsc.stop(now + 0.6);
+        updateScreenText("sub deep");
     },
 
     // PAD 06: Saw Bass
-    6: () => {
+    "saw": () => {
         const now = audioCtx.currentTime;
         const osc = audioCtx.createOscillator();
         const filter = audioCtx.createBiquadFilter();
@@ -244,10 +295,11 @@ const synths = {
 
         osc.start(now);
         osc.stop(now + 0.42);
+        updateScreenText("saw bass");
     },
 
-    // PAD 07: Dirty Growl Bass
-    7: () => {
+    // PAD 07: Dirty Growl
+    "growl": () => {
         const now = audioCtx.currentTime;
         const carrier = audioCtx.createOscillator();
         const modulator = audioCtx.createOscillator();
@@ -273,10 +325,11 @@ const synths = {
         modulator.start(now);
         carrier.stop(now + 0.5);
         modulator.stop(now + 0.5);
+        updateScreenText("dirty growl");
     },
 
-    // PAD 08: Classic 80s Chime
-    8: () => {
+    // PAD 08: Classic 80s
+    "vintage": () => {
         const now = audioCtx.currentTime;
         const osc1 = audioCtx.createOscillator();
         const osc2 = audioCtx.createOscillator();
@@ -299,10 +352,11 @@ const synths = {
         osc2.start(now);
         osc1.stop(now + 0.6);
         osc2.stop(now + 0.6);
+        updateScreenText("classic 80s");
     },
 
     // PAD 09: Glass Lead
-    9: () => {
+    "lead1": () => {
         const now = audioCtx.currentTime;
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
@@ -318,12 +372,13 @@ const synths = {
 
         osc.start(now);
         osc.stop(now + 0.5);
+        updateScreenText("glass lead");
     },
 
     // PAD 10: Pulse Arp
-    10: () => {
+    "lead2": () => {
         const now = audioCtx.currentTime;
-        const freqs = [261.63, 329.63, 392.00, 523.25]; // C chord arpeggio
+        const freqs = [261.63, 329.63, 392.00, 523.25]; // C Chord Arp
         freqs.forEach((freq, idx) => {
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
@@ -340,12 +395,13 @@ const synths = {
             osc.start(now + (idx * 0.07));
             osc.stop(now + (idx * 0.07) + 0.08);
         });
+        updateScreenText("pulse arp");
     },
 
-    // PAD 11: Dream State Chord
-    11: () => {
+    // PAD 11: Dream State
+    "lead3": () => {
         const now = audioCtx.currentTime;
-        const notes = [329.63, 392.00, 493.88, 587.33]; // Em7 chord
+        const notes = [329.63, 392.00, 493.88, 587.33]; // Em7 Chord
         notes.forEach(note => {
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
@@ -362,10 +418,11 @@ const synths = {
             osc.start(now);
             osc.stop(now + 0.8);
         });
+        updateScreenText("dream state");
     },
 
-    // PAD 12: Digital Glitch Toy
-    12: () => {
+    // PAD 12: Glitch Toy
+    "lead4": () => {
         const now = audioCtx.currentTime;
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
@@ -382,37 +439,60 @@ const synths = {
 
         osc.start(now);
         osc.stop(now + 0.16);
+        updateScreenText("glitch toy");
     }
 };
 
 // --- DOM Event Bindings & Visual Cues ---
-document.querySelectorAll(".grid-pad, .pad").forEach(pad => {
+document.querySelectorAll(".pad").forEach(pad => {
+    // Standard touch / click listener
     pad.addEventListener("pointerdown", (e) => {
         initAudio();
-        const padIndex = pad.dataset.pad || pad.getAttribute('data-id');
-        if (synths[padIndex]) {
-            synths[padIndex]();
+        const note = pad.dataset.note;
+        if (synths[note]) {
+            synths[note]();
             pad.classList.add("active");
             setTimeout(() => pad.classList.remove("active"), 120);
         }
     });
 });
 
-const keyMap = {
-    '1': 1, '2': 2, '3': 3, '4': 4,
-    'q': 5, 'w': 6, 'e': 7, 'r': 8,
-    'a': 9, 's': 10, 'd': 11, 'f': 12
-};
+// Real-Time Master Volume Updates
+const volumeInput = document.getElementById("masterVolume");
+if (volumeInput) {
+    volumeInput.addEventListener("input", () => {
+        getMasterGain(); // Dynamically updates active slider node value
+    });
+}
 
+// Kill Signal Button
+const killBtn = document.getElementById("killAudioBtn");
+if (killBtn) {
+    killBtn.addEventListener("click", () => {
+        if (audioCtx) {
+            audioCtx.close().then(() => {
+                audioCtx = null;
+                masterGain = null;
+                analyser = null;
+                visualActive = false;
+                if (screenText) screenText.innerText = "SIGNAL TERMINATED";
+            });
+        }
+    });
+}
+
+// Keyboard Hotkey Mapping
 window.addEventListener("keydown", (e) => {
-    const padIndex = keyMap[e.key.toLowerCase()];
-    if (padIndex) {
+    const activeKey = e.key.toLowerCase();
+    const targetPad = document.querySelector(`[data-key="${activeKey}"]`);
+    
+    if (targetPad) {
         initAudio();
-        const padElement = document.querySelector(`[data-pad="${padIndex}"]`) || document.querySelector(`[data-id="${padIndex}"]`);
-        if (padElement && synths[padIndex]) {
-            synths[padIndex]();
-            padElement.classList.add("active");
-            setTimeout(() => padElement.classList.remove("active"), 120);
+        const note = targetPad.dataset.note;
+        if (synths[note]) {
+            synths[note]();
+            targetPad.classList.add("active");
+            setTimeout(() => targetPad.classList.remove("active"), 120);
         }
     }
 });

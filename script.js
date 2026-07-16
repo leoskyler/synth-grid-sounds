@@ -1,241 +1,418 @@
 let audioCtx = null;
 let analyser = null;
-let masterGain = null;
+let visualActive = false;
 
-const screenText = document.getElementById("screenText");
-const canvas = document.getElementById("audioVisualizer");
-const canvasCtx = canvas.getContext("2d");
-
-function resizeCanvas() {
-    canvas.width = canvas.clientWidth * window.devicePixelRatio;
-    canvas.height = canvas.clientHeight * window.devicePixelRatio;
-}
-window.addEventListener("resize", resizeCanvas);
-resizeCanvas();
-
-// Safe Init Engine (Fires immediately upon first pad touch/click)
-function initAudioEngine() {
-    if (audioCtx) return;
-
-    try {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        audioCtx = new AudioContextClass();
-        
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         analyser = audioCtx.createAnalyser();
         analyser.fftSize = 128;
-        
+        analyser.connect(audioCtx.destination);
+        startVisualizer();
+    }
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+}
+
+// Master volume node
+let masterGain = null;
+function getMasterGain() {
+    if (!masterGain && audioCtx) {
         masterGain = audioCtx.createGain();
-        masterGain.gain.setValueAtTime(0.6, audioCtx.currentTime);
-
-        analyser.connect(masterGain);
-        masterGain.connect(audioCtx.destination);
-
-        screenText.textContent = "ENGINE READY // SYSTEM OK";
-        
-        document.getElementById("masterVolume").addEventListener("input", (e) => {
-            if (masterGain) {
-                masterGain.gain.setValueAtTime(parseFloat(e.target.value), audioCtx.currentTime);
-            }
-        });
-
-        drawVisualizer();
-    } catch (err) {
-        screenText.textContent = "AUDIO INITIALIZATION FAILED";
+        masterGain.gain.setValueAtTime(0.8, audioCtx.currentTime);
+        masterGain.connect(analyser);
     }
+    return masterGain;
 }
 
-async function resumeAudioContext() {
-    initAudioEngine();
-    if (audioCtx && audioCtx.state === "suspended") {
-        await audioCtx.resume();
-    }
-}
-
-// Synthesizer Algorithms
-function triggerSynth(noteType) {
-    if (!audioCtx) return;
-
-    const osc = audioCtx.createOscillator();
-    const synthGain = audioCtx.createGain();
-    synthGain.gain.setValueAtTime(0, audioCtx.currentTime);
-    
-    let duration = 0.3;
-
-    if (noteType === "kick") {
-        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
-        synthGain.gain.linearRampToValueAtTime(1.0, audioCtx.currentTime + 0.01);
-        synthGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.18);
-        duration = 0.18;
-    } 
-    else if (noteType === "snare") {
-        osc.type = "triangle";
-        osc.frequency.setValueAtTime(190, audioCtx.currentTime);
-        synthGain.gain.linearRampToValueAtTime(0.7, audioCtx.currentTime + 0.01);
-        synthGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.22);
-        duration = 0.22;
-    }
-    else if (noteType === "hihat") {
-        osc.type = "triangle";
-        osc.frequency.setValueAtTime(9000, audioCtx.currentTime);
-        synthGain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.005);
-        synthGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.07);
-        duration = 0.07;
-    }
-    else if (noteType === "clap") {
-        osc.type = "sawtooth";
-        osc.frequency.setValueAtTime(850, audioCtx.currentTime);
-        synthGain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.01);
-        synthGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
-        duration = 0.15;
-    }
-    else if (noteType === "sub") {
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(65.41, audioCtx.currentTime); // C2
-        synthGain.gain.linearRampToValueAtTime(0.8, audioCtx.currentTime + 0.05);
-        synthGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.55);
-        duration = 0.55;
-    }
-    else if (noteType === "saw") {
-        osc.type = "sawtooth";
-        osc.frequency.setValueAtTime(130.81, audioCtx.currentTime); // C3
-        synthGain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.02);
-        synthGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.45);
-        duration = 0.45;
-    }
-    else if (noteType === "growl") {
-        osc.type = "sawtooth";
-        osc.frequency.setValueAtTime(92.0, audioCtx.currentTime); // F#2
-        osc.frequency.linearRampToValueAtTime(45.0, audioCtx.currentTime + 0.35);
-        synthGain.gain.linearRampToValueAtTime(0.6, audioCtx.currentTime + 0.02);
-        synthGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
-        duration = 0.4;
-    }
-    else if (noteType === "vintage") {
-        osc.type = "triangle";
-        osc.frequency.setValueAtTime(146.83, audioCtx.currentTime); // D3
-        synthGain.gain.linearRampToValueAtTime(0.6, audioCtx.currentTime + 0.05);
-        synthGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.45);
-        duration = 0.45;
-    }
-    else if (noteType === "lead1") {
-        osc.type = "sawtooth";
-        osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
-        synthGain.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 0.02);
-        synthGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
-        duration = 0.35;
-    }
-    else if (noteType === "lead2") {
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
-        synthGain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.01);
-        synthGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
-        duration = 0.3;
-    }
-    else if (noteType === "lead3") {
-        osc.type = "triangle";
-        osc.frequency.setValueAtTime(659.25, audioCtx.currentTime); // E5
-        synthGain.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 0.05);
-        synthGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.65);
-        duration = 0.65;
-    }
-    else if (noteType === "lead4") {
-        osc.type = "sawtooth";
-        osc.frequency.setValueAtTime(783.99, audioCtx.currentTime); // G5
-        osc.frequency.setValueAtTime(1567.98, audioCtx.currentTime + 0.08); // Arpeggiates octave jump
-        synthGain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.01);
-        synthGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.28);
-        duration = 0.28;
-    }
-
-    osc.connect(synthGain);
-    synthGain.connect(analyser);
-    
-    osc.start();
-    osc.stop(audioCtx.currentTime + duration);
-    
-    screenText.textContent = `PATCH OUT: [${noteType.toUpperCase()}]`;
-}
-
-// Map Touch and Click triggers for instant execution
-const pads = document.querySelectorAll(".pad");
-pads.forEach(pad => {
-    const handleTrigger = async (e) => {
-        e.preventDefault();
-        await resumeAudioContext();
-        
-        const note = pad.getAttribute("data-note");
-        triggerSynth(note);
-        
-        pad.classList.add("pressed");
-        setTimeout(() => pad.classList.remove("pressed"), 100);
-    };
-
-    pad.addEventListener("touchstart", handleTrigger, { passive: false });
-    pad.addEventListener("mousedown", handleTrigger);
-});
-
-// Map physical keyboard strokes
-const keyMap = {
-    "1": "kick", "2": "snare", "3": "hihat", "4": "clap",
-    "q": "sub", "w": "saw", "e": "growl", "r": "vintage",
-    "a": "lead1", "s": "lead2", "d": "lead3", "f": "lead4"
-};
-
-window.addEventListener("keydown", async (e) => {
-    const key = e.key.toLowerCase();
-    if (keyMap[key]) {
-        await resumeAudioContext();
-        triggerSynth(keyMap[key]);
-        const matchedPad = document.querySelector(`[data-key="${key}"]`);
-        if (matchedPad) {
-            matchedPad.classList.add("pressed");
-            setTimeout(() => matchedPad.classList.remove("pressed"), 100);
-        }
-    }
-});
-
-document.getElementById("killAudioBtn").addEventListener("click", () => {
-    if (audioCtx) {
-        audioCtx.close().then(() => {
-            audioCtx = null;
-            screenText.textContent = "SIGNAL CLOSED";
-        });
-    }
-});
-
-// High-Definition Oscilloscope Drawing Routine
-function drawVisualizer() {
-    if (!audioCtx) return;
-    requestAnimationFrame(drawVisualizer);
-
+// --- Dynamic Visualizer Engine ---
+function startVisualizer() {
+    const patchDisplay = document.querySelector('.visualizer-inner') || document.querySelector('.zen-core');
+    if (!patchDisplay) return;
+    visualActive = true;
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
-    analyser.getByteTimeDomainData(dataArray);
+    
+    function draw() {
+        if (!visualActive) return;
+        requestAnimationFrame(draw);
+        analyser.getByteFrequencyData(dataArray);
+    }
+    draw();
+}
 
-    canvasCtx.fillStyle = "#050608";
-    canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+// --- The 12-Pad Synthesizer Engines ---
+const synths = {
+    // PAD 01: Audibility-Enhanced Kick (Sine + Triangle blend for rich upper harmonics)
+    1: () => {
+        const now = audioCtx.currentTime;
+        const oscSine = audioCtx.createOscillator();
+        const oscTri = audioCtx.createOscillator();
+        const gainSine = audioCtx.createGain();
+        const gainTri = audioCtx.createGain();
+        const filter = audioCtx.createBiquadFilter();
 
-    canvasCtx.lineWidth = 3;
-    canvasCtx.strokeStyle = "#00ffaa";
-    canvasCtx.beginPath();
+        oscSine.type = 'sine';
+        oscTri.type = 'triangle'; // Triangle provides crucial mid-range harmonics for phone speakers!
 
-    const sliceWidth = canvas.width / bufferLength;
-    let x = 0;
+        // Dynamic rapid pitch drop
+        oscSine.frequency.setValueAtTime(150, now);
+        oscSine.frequency.exponentialRampToValueAtTime(52, now + 0.12);
 
-    for (let i = 0; i < bufferLength; i++) {
-        const v = dataArray[i] / 128.0;
-        const y = (v * canvas.height) / 2;
+        oscTri.frequency.setValueAtTime(300, now); // Double frequency for audible definition on phones
+        oscTri.frequency.exponentialRampToValueAtTime(104, now + 0.12);
 
-        if (i === 0) {
-            canvasCtx.moveTo(x, y);
-        } else {
-            canvasCtx.lineTo(x, y);
+        // Volume envelopes
+        gainSine.gain.setValueAtTime(0.8, now);
+        gainSine.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+        gainTri.gain.setValueAtTime(0.2, now); // Quiet mix but highly audible
+        gainTri.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(250, now);
+
+        oscSine.connect(gainSine);
+        oscTri.connect(gainTri);
+        
+        gainSine.connect(filter);
+        gainTri.connect(filter);
+        filter.connect(getMasterGain());
+
+        oscSine.start(now);
+        oscTri.start(now);
+        oscSine.stop(now + 0.3);
+        oscTri.stop(now + 0.3);
+    },
+
+    // PAD 02: Snare Drum
+    2: () => {
+        const now = audioCtx.currentTime;
+        const bufferSize = audioCtx.sampleRate * 0.2;
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
         }
 
-        x += sliceWidth;
-    }
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buffer;
 
-    canvasCtx.lineTo(canvas.width, canvas.height / 2);
-    canvasCtx.stroke();
-}
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(1000, now);
+
+        const noiseGain = audioCtx.createGain();
+        noiseGain.gain.setValueAtTime(0.5, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+
+        const snap = audioCtx.createOscillator();
+        const snapGain = audioCtx.createGain();
+        snap.type = 'triangle';
+        snap.frequency.setValueAtTime(180, now);
+        snapGain.gain.setValueAtTime(0.4, now);
+        snapGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+
+        noise.connect(filter);
+        filter.connect(noiseGain);
+        noiseGain.connect(getMasterGain());
+
+        snap.connect(snapGain);
+        snapGain.connect(getMasterGain());
+
+        noise.start(now);
+        snap.start(now);
+        noise.stop(now + 0.2);
+        snap.stop(now + 0.2);
+    },
+
+    // PAD 03: Hi-Hat
+    3: () => {
+        const now = audioCtx.currentTime;
+        const bufferSize = audioCtx.sampleRate * 0.05;
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.setValueAtTime(7000, now);
+
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(getMasterGain());
+
+        noise.start(now);
+        noise.stop(now + 0.06);
+    },
+
+    // PAD 04: Futuristic Clap
+    4: () => {
+        const now = audioCtx.currentTime;
+        const playClapTrigger = (delay) => {
+            const bufferSize = audioCtx.sampleRate * 0.08;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.setValueAtTime(1200, now);
+
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0.25, now + delay);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + delay + 0.06);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(getMasterGain());
+
+            noise.start(now + delay);
+            noise.stop(now + delay + 0.08);
+        };
+
+        playClapTrigger(0);
+        playClapTrigger(0.015);
+        playClapTrigger(0.03);
+    },
+
+    // PAD 05: Audibility-Enhanced Sub Deep (Added a low second-harmonic oscillator)
+    5: () => {
+        const now = audioCtx.currentTime;
+        const subOsc = audioCtx.createOscillator();
+        const harmonicOsc = audioCtx.createOscillator();
+        const subGain = audioCtx.createGain();
+        const harmGain = audioCtx.createGain();
+
+        // 55Hz (Sub A1 - Feel this on headphones)
+        subOsc.type = 'sine';
+        subOsc.frequency.setValueAtTime(55, now);
+        subGain.gain.setValueAtTime(0.8, now);
+        subGain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+
+        // 110Hz (Harmonic A2 - Triangle wave to bypass phone speaker limits!)
+        harmonicOsc.type = 'triangle';
+        harmonicOsc.frequency.setValueAtTime(110, now);
+        harmGain.gain.setValueAtTime(0.18, now);
+        harmGain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+
+        subOsc.connect(subGain);
+        subGain.connect(getMasterGain());
+
+        harmonicOsc.connect(harmGain);
+        harmGain.connect(getMasterGain());
+
+        subOsc.start(now);
+        harmonicOsc.start(now);
+        subOsc.stop(now + 0.6);
+        harmonicOsc.stop(now + 0.6);
+    },
+
+    // PAD 06: Saw Bass
+    6: () => {
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const filter = audioCtx.createBiquadFilter();
+        const gain = audioCtx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(65.41, now); // C2
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(400, now);
+        filter.frequency.exponentialRampToValueAtTime(100, now + 0.3);
+
+        gain.gain.setValueAtTime(0.5, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(getMasterGain());
+
+        osc.start(now);
+        osc.stop(now + 0.42);
+    },
+
+    // PAD 07: Dirty Growl Bass
+    7: () => {
+        const now = audioCtx.currentTime;
+        const carrier = audioCtx.createOscillator();
+        const modulator = audioCtx.createOscillator();
+        const modGain = audioCtx.createGain();
+        const gain = audioCtx.createGain();
+
+        carrier.type = 'sawtooth';
+        carrier.frequency.setValueAtTime(73.42, now); // D2
+
+        modulator.type = 'sine';
+        modulator.frequency.setValueAtTime(110, now);
+        modGain.gain.setValueAtTime(150, now);
+
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+
+        modulator.connect(modGain);
+        modGain.connect(carrier.frequency);
+        carrier.connect(gain);
+        gain.connect(getMasterGain());
+
+        carrier.start(now);
+        modulator.start(now);
+        carrier.stop(now + 0.5);
+        modulator.stop(now + 0.5);
+    },
+
+    // PAD 08: Classic 80s Chime
+    8: () => {
+        const now = audioCtx.currentTime;
+        const osc1 = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc1.type = 'triangle';
+        osc1.frequency.setValueAtTime(587.33, now); // D5
+
+        osc2.type = 'sawtooth';
+        osc2.frequency.setValueAtTime(590, now);
+
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(getMasterGain());
+
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + 0.6);
+        osc2.stop(now + 0.6);
+    },
+
+    // PAD 09: Glass Lead
+    9: () => {
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now); // A5
+
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+
+        osc.connect(gain);
+        gain.connect(getMasterGain());
+
+        osc.start(now);
+        osc.stop(now + 0.5);
+    },
+
+    // PAD 10: Pulse Arp
+    10: () => {
+        const now = audioCtx.currentTime;
+        const freqs = [261.63, 329.63, 392.00, 523.25]; // C chord arpeggio
+        freqs.forEach((freq, idx) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(freq, now + (idx * 0.07));
+
+            gain.gain.setValueAtTime(0.15, now + (idx * 0.07));
+            gain.gain.exponentialRampToValueAtTime(0.01, now + (idx * 0.07) + 0.06);
+
+            osc.connect(gain);
+            gain.connect(getMasterGain());
+
+            osc.start(now + (idx * 0.07));
+            osc.stop(now + (idx * 0.07) + 0.08);
+        });
+    },
+
+    // PAD 11: Dream State Chord
+    11: () => {
+        const now = audioCtx.currentTime;
+        const notes = [329.63, 392.00, 493.88, 587.33]; // Em7 chord
+        notes.forEach(note => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(note, now);
+
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+
+            osc.connect(gain);
+            gain.connect(getMasterGain());
+
+            osc.start(now);
+            osc.stop(now + 0.8);
+        });
+    },
+
+    // PAD 12: Digital Glitch Toy
+    12: () => {
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(800 + Math.random() * 1200, now);
+        osc.frequency.linearRampToValueAtTime(100, now + 0.15);
+
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+
+        osc.connect(gain);
+        gain.connect(getMasterGain());
+
+        osc.start(now);
+        osc.stop(now + 0.16);
+    }
+};
+
+// --- DOM Event Bindings & Visual Cues ---
+document.querySelectorAll(".grid-pad, .pad").forEach(pad => {
+    pad.addEventListener("pointerdown", (e) => {
+        initAudio();
+        const padIndex = pad.dataset.pad || pad.getAttribute('data-id');
+        if (synths[padIndex]) {
+            synths[padIndex]();
+            pad.classList.add("active");
+            setTimeout(() => pad.classList.remove("active"), 120);
+        }
+    });
+});
+
+const keyMap = {
+    '1': 1, '2': 2, '3': 3, '4': 4,
+    'q': 5, 'w': 6, 'e': 7, 'r': 8,
+    'a': 9, 's': 10, 'd': 11, 'f': 12
+};
+
+window.addEventListener("keydown", (e) => {
+    const padIndex = keyMap[e.key.toLowerCase()];
+    if (padIndex) {
+        initAudio();
+        const padElement = document.querySelector(`[data-pad="${padIndex}"]`) || document.querySelector(`[data-id="${padIndex}"]`);
+        if (padElement && synths[padIndex]) {
+            synths[padIndex]();
+            padElement.classList.add("active");
+            setTimeout(() => padElement.classList.remove("active"), 120);
+        }
+    }
+});

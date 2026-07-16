@@ -2,100 +2,105 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Synthwave Grid // Sound & Light</title>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Studio Grid // Tactile Synth Station</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <!-- Retro Neon Grid Background -->
-    <div class="space-grid"></div>
-
-    <div class="app-container">
-        <!-- Header -->
-        <header>
-            <h1>SYNTHWAVE <span class="highlight">GRID</span></h1>
-            <p class="subtitle">INTERACTIVE SOUNDBOARD & VISUALIZER</p>
+    <div class="studio-deck">
+        <!-- Top Control Bar -->
+        <header class="deck-header">
+            <div class="brand">
+                <span class="logo-icon"></span>
+                <h1>GRID // <span class="accent-text">MKI</span></h1>
+            </div>
+            <div class="connection-status">
+                <span class="status-indicator active"></span> ENGINE: ONLINE
+            </div>
         </header>
 
-        <!-- Visualizer Section -->
-        <div class="visualizer-container">
-            <canvas id="visualizerCanvas"></canvas>
-            <div class="center-status" id="statusText">TAP A PAD TO GENERATE FREQUENCIES</div>
+        <!-- CRT-Style Visualizer Screen -->
+        <div class="display-screen">
+            <div class="screen-glare"></div>
+            <canvas id="audioVisualizer"></canvas>
+            <div class="screen-overlay-text" id="screenText">TOUCH PAD TO GENERATE FREQUENCIES</div>
         </div>
 
-        <!-- Audio Grid Controls (Tempo/Volume) -->
-        <div class="control-bar">
-            <div class="control-item">
-                <label for="masterVolume">VOLUME</label>
-                <input type="range" id="masterVolume" min="0" max="1" step="0.1" value="0.7">
+        <!-- Master Deck Controls -->
+        <div class="master-row">
+            <div class="control-knob-group">
+                <label for="masterVolume">MASTER OUT</label>
+                <div class="slider-wrapper">
+                    <input type="range" id="masterVolume" min="0" max="1" step="0.05" value="0.6">
+                </div>
             </div>
-            <button class="action-btn" id="panicBtn">KILL AUDIO</button>
+            <button class="panic-btn" id="killAudioBtn">KILL SIGNAL</button>
         </div>
 
-        <!-- Soundboard Grid -->
-        <div class="sound-grid">
-            <!-- Beat Section -->
-            <button class="pad beat-pad" data-sound="kick">
-                <span class="pad-key">1</span>
-                <span class="pad-name">KICK</span>
+        <!-- Tactile Analog Pads -->
+        <div class="pads-grid">
+            <!-- Row 1: Drum Elements -->
+            <button class="pad beat-pad" data-note="kick" data-key="1">
+                <span class="pad-num">01</span>
+                <span class="pad-label">KICK</span>
             </button>
-            <button class="pad beat-pad" data-sound="snare">
-                <span class="pad-key">2</span>
-                <span class="pad-name">SNARE</span>
+            <button class="pad beat-pad" data-note="snare" data-key="2">
+                <span class="pad-num">02</span>
+                <span class="pad-label">SNARE</span>
             </button>
-            <button class="pad beat-pad" data-sound="hihat">
-                <span class="pad-key">3</span>
-                <span class="pad-name">HI-HAT</span>
+            <button class="pad beat-pad" data-note="hihat" data-key="3">
+                <span class="pad-num">03</span>
+                <span class="pad-label">HI-HAT</span>
             </button>
-            <button class="pad beat-pad" data-sound="clap">
-                <span class="pad-key">4</span>
-                <span class="pad-name">CLAP</span>
-            </button>
-
-            <!-- Bass Section -->
-            <button class="pad bass-pad" data-sound="sub">
-                <span class="pad-key">Q</span>
-                <span class="pad-name">SUB BASS</span>
-            </button>
-            <button class="pad bass-pad" data-sound="saw">
-                <span class="pad-key">W</span>
-                <span class="pad-name">SAW BASS</span>
-            </button>
-            <button class="pad bass-pad" data-sound="growl">
-                <span class="pad-key">E</span>
-                <span class="pad-name">GROWL</span>
-            </button>
-            <button class="pad bass-pad" data-sound="retro">
-                <span class="pad-key">R</span>
-                <span class="pad-name">80S BASS</span>
+            <button class="pad beat-pad" data-note="clap" data-key="4">
+                <span class="pad-num">04</span>
+                <span class="pad-label">CLAP</span>
             </button>
 
-            <!-- Synth Melodies -->
-            <button class="pad synth-pad" data-sound="lead1">
-                <span class="pad-key">A</span>
-                <span class="pad-name">CYBER LEAD</span>
+            <!-- Row 2: Heavy Bass Frequencies -->
+            <button class="pad bass-pad" data-note="sub" data-key="q">
+                <span class="pad-num">05</span>
+                <span class="pad-label">SUB DEEP</span>
             </button>
-            <button class="pad synth-pad" data-sound="lead2">
-                <span class="pad-key">S</span>
-                <span class="pad-name">NEON ARP</span>
+            <button class="pad bass-pad" data-note="saw" data-key="w">
+                <span class="pad-num">06</span>
+                <span class="pad-label">SAW BASS</span>
             </button>
-            <button class="pad synth-pad" data-sound="pad">
-                <span class="pad-key">D</span>
-                <span class="pad-name">DREAM SPACE</span>
+            <button class="pad bass-pad" data-note="growl" data-key="e">
+                <span class="pad-num">07</span>
+                <span class="pad-label">DIRTY GROWL</span>
             </button>
-            <button class="pad synth-pad" data-sound="chime">
-                <span class="pad-key">F</span>
-                <span class="pad-name">GLITCH BELL</span>
+            <button class="pad bass-pad" data-note="vintage" data-key="r">
+                <span class="pad-num">08</span>
+                <span class="pad-label">CLASSIC 80s</span>
+            </button>
+
+            <!-- Row 3: Melodic Poly Synthesizers -->
+            <button class="pad lead-pad" data-note="lead1" data-key="a">
+                <span class="pad-num">09</span>
+                <span class="pad-label">GLASS LEAD</span>
+            </button>
+            <button class="pad lead-pad" data-note="lead2" data-key="s">
+                <span class="pad-num">10</span>
+                <span class="pad-label">PULSE ARP</span>
+            </button>
+            <button class="pad lead-pad" data-note="lead3" data-key="d">
+                <span class="pad-num">11</span>
+                <span class="pad-label">DREAM STATE</span>
+            </button>
+            <button class="pad lead-pad" data-note="lead4" data-key="f">
+                <span class="pad-num">12</span>
+                <span class="pad-label">GLITCH TOY</span>
             </button>
         </div>
 
-        <!-- Instructions footer -->
-        <footer>
-            <p>Use keys [1-4], [Q-R], [A-F] on your keyboard or tap the pads.</p>
+        <footer class="deck-footer">
+            <p>SUPPORTED: TAP PADS OR USE KEYBOARD [1-4], [Q-R], [A-F]</p>
         </footer>
     </div>
 
+    <script src="script.js"></script>
 </body>
 </html>
